@@ -3,6 +3,22 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" id="meta-theme-color" content="#F5F1EA">
+<meta name="color-scheme" id="meta-color-scheme" content="light">
+<script>
+/* Sincroniza o primeiro frame da PWA com o tema salvo, antes do CSS pintar a tela. */
+(function(){
+  try {
+    var dark = localStorage.getItem("meuQuizTema") === "dark";
+    var surface = dark ? "#17130E" : "#F5F1EA";
+    document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
+    document.documentElement.style.colorScheme = dark ? "dark" : "light";
+    document.documentElement.style.background = surface;
+    document.getElementById("meta-theme-color").setAttribute("content", surface);
+    document.getElementById("meta-color-scheme").setAttribute("content", dark ? "dark" : "light");
+  } catch(e) {}
+})();
+</script>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏹</text></svg>">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -968,7 +984,10 @@ body.study-mode main.questions-container{max-width:var(--study-w);padding-top:72
   try {
     var iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="104" fill="#7C2D12"/><text x="256" y="360" font-size="300" text-anchor="middle" font-family="Apple Color Emoji,Segoe UI Emoji,Noto Color Emoji,sans-serif">🏹</text></svg>';
     var iconUri = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(iconSvg);
-    var manifest = {name:'Hunter',short_name:'Hunter',description:'Hunter — plataforma de estudos',start_url:location.pathname + location.search,scope:'./',display:'standalone',orientation:'portrait-primary',background_color:'#F5F1EA',theme_color:'#7C2D12',lang:'pt-BR',icons:[{src:iconUri,sizes:'192x192',type:'image/svg+xml',purpose:'any'},{src:iconUri,sizes:'512x512',type:'image/svg+xml',purpose:'any'}]};
+    var manifestDark = false;
+    try { manifestDark = localStorage.getItem('meuQuizTema') === 'dark'; } catch(e) {}
+    var manifestSurface = manifestDark ? '#17130E' : '#F5F1EA';
+    var manifest = {name:'Hunter',short_name:'Hunter',description:'Hunter — plataforma de estudos',start_url:location.pathname + location.search,scope:'./',display:'standalone',orientation:'portrait-primary',background_color:manifestSurface,theme_color:manifestSurface,lang:'pt-BR',icons:[{src:iconUri,sizes:'192x192',type:'image/svg+xml',purpose:'any'},{src:iconUri,sizes:'512x512',type:'image/svg+xml',purpose:'any'}]};
     var link = document.createElement('link'); link.rel = 'manifest';
     link.href = 'data:application/manifest+json;charset=utf-8,' + encodeURIComponent(JSON.stringify(manifest));
     document.head.appendChild(link);
@@ -1237,7 +1256,18 @@ function applyVisualThemeColors(){
   root.style.setProperty('--font-body',(BODY_FONTS[getBodyFont()]||BODY_FONTS.intertight).css);
   root.setAttribute('data-visual-theme',getVisualTheme()); root.setAttribute('data-accent',getAccent());
   root.style.background=n.surface;
-  var metaTheme=document.querySelector('meta[name="theme-color"]'); if(!metaTheme){metaTheme=document.createElement('meta');metaTheme.name='theme-color';document.head.appendChild(metaTheme);} metaTheme.content=a.primary;
+  root.style.colorScheme=dark?'dark':'light';
+  if(document.body) document.body.style.backgroundColor=n.surface;
+
+  /* Mantém a UI nativa do Android/Chromium coerente com o modo escolhido. */
+  var metaScheme=document.querySelector('meta[name="color-scheme"]');
+  if(!metaScheme){metaScheme=document.createElement('meta');metaScheme.name='color-scheme';document.head.appendChild(metaScheme);}
+  metaScheme.content=dark?'dark':'light';
+
+  var metaTheme=document.querySelector('meta[name="theme-color"]');
+  if(!metaTheme){metaTheme=document.createElement('meta');metaTheme.name='theme-color';document.head.appendChild(metaTheme);}
+  /* Para barras do sistema, a superfície funciona melhor que a cor de destaque. */
+  metaTheme.content=n.surface;
 }
 function setVisualTheme(value){ if(!VISUAL_THEMES[value]) return; persistAppearancePref('visualTheme',VISUAL_THEME_KEY,value); applyVisualThemeColors(); }
 function setAccent(value){ if(!ACCENT_THEMES[value]) return; persistAppearancePref('accent',ACCENT_KEY,value); applyVisualThemeColors(); }
@@ -3476,6 +3506,12 @@ function setThemePref(isDark){
   try { localStorage.setItem(THEME_KEY, t); } catch(e){}
 }
 try { if(localStorage.getItem(THEME_KEY) === 'dark') aplicarTema(true); else aplicarTema(false); } catch(e){ aplicarTema(false); }
+
+/* Alguns Chromium/Android reaplicam a barra nativa ao retomar a PWA. Reforça o tema nesses ciclos. */
+window.addEventListener('pageshow', function(){ try { applyVisualThemeColors(); } catch(e){} });
+document.addEventListener('visibilitychange', function(){
+  if(!document.hidden){ try { applyVisualThemeColors(); } catch(e){} }
+});
 
 /* ============== IMPORTS ============== */
 function parseCSV(text){
