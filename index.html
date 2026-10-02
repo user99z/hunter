@@ -3,11 +3,6 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="description" content="Hunter — plataforma de estudos e revisão espaçada.">
-<meta name="theme-color" content="#7C2D12">
-<link rel="manifest" href="./manifest.webmanifest">
-<link rel="apple-touch-icon" sizes="180x180" href="./icons/apple-touch-icon.png">
-<link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏹</text></svg>">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -969,107 +964,18 @@ body.study-mode main.questions-container{max-width:var(--study-w);padding-top:72
 "use strict";
 
 /* ============== PWA ============== */
-var __pwaInstallPrompt = null;
-var __pwaRegistration = null;
-var __pwaServiceWorkerReady = false;
-var __pwaUpdateAvailable = false;
-var __pwaReloadingForUpdate = false;
-
-function isPWAStandalone(){
-  return !!((window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true);
-}
-function isIOSDevice(){
-  return /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-}
-function refreshPWASettingsIfOpen(){
+(function setupPWA(){
   try {
-    if(typeof state !== 'undefined' && state.homeTab === 'settings' && state.settingsSubTab === 'app' && typeof renderHome === 'function') renderHome();
+    var iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="104" fill="#7C2D12"/><text x="256" y="360" font-size="300" text-anchor="middle" font-family="Apple Color Emoji,Segoe UI Emoji,Noto Color Emoji,sans-serif">🏹</text></svg>';
+    var iconUri = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(iconSvg);
+    var manifest = {name:'Hunter',short_name:'Hunter',description:'Hunter — plataforma de estudos',start_url:location.pathname + location.search,scope:'./',display:'standalone',orientation:'portrait-primary',background_color:'#F5F1EA',theme_color:'#7C2D12',lang:'pt-BR',icons:[{src:iconUri,sizes:'192x192',type:'image/svg+xml',purpose:'any'},{src:iconUri,sizes:'512x512',type:'image/svg+xml',purpose:'any'}]};
+    var link = document.createElement('link'); link.rel = 'manifest';
+    link.href = 'data:application/manifest+json;charset=utf-8,' + encodeURIComponent(JSON.stringify(manifest));
+    document.head.appendChild(link);
+    var apple = document.createElement('link'); apple.rel = 'apple-touch-icon'; apple.href = iconUri;
+    document.head.appendChild(apple);
   } catch(e){}
-}
-function updatePWANetworkUI(){
-  var badge = document.getElementById('pwa-offline-badge');
-  if(badge){ badge.hidden = navigator.onLine; badge.setAttribute('aria-hidden', navigator.onLine ? 'true' : 'false'); }
-  document.documentElement.classList.toggle('is-offline', !navigator.onLine);
-  refreshPWASettingsIfOpen();
-}
-function showPWAUpdateToast(){
-  if(document.getElementById('pwa-update-toast')) return;
-  var toast = document.createElement('div');
-  toast.id = 'pwa-update-toast';
-  toast.className = 'pwa-update-toast';
-  toast.setAttribute('role','status');
-  toast.innerHTML = '<div><strong>Atualização disponível</strong><span>Há uma versão nova do Hunter pronta para usar.</span></div><button class="btn-primary" data-haction="pwa-apply-update">Atualizar</button>';
-  document.body.appendChild(toast);
-}
-function hidePWAUpdateToast(){
-  var toast = document.getElementById('pwa-update-toast'); if(toast) toast.remove();
-}
-function watchPWARegistration(reg){
-  __pwaRegistration = reg;
-  __pwaServiceWorkerReady = true;
-  if(reg.waiting && navigator.serviceWorker.controller){ __pwaUpdateAvailable = true; showPWAUpdateToast(); }
-  reg.addEventListener('updatefound', function(){
-    var worker = reg.installing; if(!worker) return;
-    worker.addEventListener('statechange', function(){
-      if(worker.state === 'installed' && navigator.serviceWorker.controller){
-        __pwaUpdateAvailable = true;
-        showPWAUpdateToast();
-        refreshPWASettingsIfOpen();
-      }
-    });
-  });
-  refreshPWASettingsIfOpen();
-}
-function applyPWAUpdate(){
-  if(__pwaRegistration && __pwaRegistration.waiting){
-    __pwaReloadingForUpdate = true;
-    __pwaRegistration.waiting.postMessage({type:'SKIP_WAITING'});
-    return;
-  }
-  location.reload();
-}
-function checkPWAUpdate(){
-  if(!__pwaRegistration || !__pwaRegistration.update) return Promise.resolve(false);
-  return __pwaRegistration.update().then(function(){ return true; }).catch(function(){ return false; });
-}
-function promptPWAInstall(){
-  if(isPWAStandalone()) return Promise.resolve(false);
-  if(!__pwaInstallPrompt) return Promise.resolve(false);
-  var prompt = __pwaInstallPrompt;
-  __pwaInstallPrompt = null;
-  return prompt.prompt().then(function(){ return prompt.userChoice; }).then(function(choice){
-    refreshPWASettingsIfOpen();
-    return !!(choice && choice.outcome === 'accepted');
-  }).catch(function(){ refreshPWASettingsIfOpen(); return false; });
-}
-window.addEventListener('beforeinstallprompt', function(ev){
-  ev.preventDefault();
-  __pwaInstallPrompt = ev;
-  refreshPWASettingsIfOpen();
-});
-window.addEventListener('appinstalled', function(){
-  __pwaInstallPrompt = null;
-  refreshPWASettingsIfOpen();
-});
-window.addEventListener('online', updatePWANetworkUI);
-window.addEventListener('offline', updatePWANetworkUI);
-if('serviceWorker' in navigator){
-  navigator.serviceWorker.addEventListener('controllerchange', function(){
-    if(__pwaReloadingForUpdate){ __pwaReloadingForUpdate = false; location.reload(); }
-  });
-  window.addEventListener('load', function(){
-    updatePWANetworkUI();
-    if(location.protocol === 'http:' || location.protocol === 'https:'){
-      navigator.serviceWorker.register('./sw.js', {scope:'./'}).then(watchPWARegistration).catch(function(){
-        __pwaServiceWorkerReady = false; refreshPWASettingsIfOpen();
-      });
-    } else {
-      __pwaServiceWorkerReady = false; refreshPWASettingsIfOpen();
-    }
-  });
-} else {
-  window.addEventListener('load', updatePWANetworkUI);
-}
+})();
 
 /* ============== CONSTANTES ============== */
 var FONT_SCALE_KEY = 'meuQuizFontScale';
@@ -1653,7 +1559,6 @@ function buildSidebar(){
     {id:'content',label:'Conteúdo',icon:'folder'},
     {id:'goals',label:'Metas',icon:'target'},
     {id:'personalize',label:'Personalização',icon:'sliders'},
-    {id:'app',label:'Aplicativo',icon:'download'},
     {id:'sync',label:'Sincronização',icon:'cloud'},
     {id:'backup',label:'Backup',icon:'download'},
     {id:'danger',label:'Zona de Risco',icon:'alert'}
@@ -1710,7 +1615,6 @@ topbar.innerHTML =
   '<div class="topbar-right">' +
     '<div class="topbar-actions">' +
       '<button class="btn-topbar btn-sync-indicator" id="btn-sync-indicator" data-haction="open-sync-panel" title="Sincronização"><span class="sync-dot" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle></svg></span></button>' +
-      '<span class="pwa-offline-badge" id="pwa-offline-badge" hidden aria-hidden="true">Offline</span>' +
       '<button class="btn-topbar" id="btn-tema" title="Alternar tema"><span class="tb-theme-icon">'+SVG_MOON+'</span></button>' +
     '</div>' +
   '</div>';
@@ -1720,7 +1624,7 @@ function updateBreadcrumb(){
   var el = document.getElementById('topbar-breadcrumb'); if(!el) return;
   var mainLabel = {overview:'Visão geral',stats:'Estatísticas',disciplines:'Disciplinas',reviews:'Revisões',achievements:'Conquistas',settings:'Configurações'}[state.homeTab] || 'Visão geral';
   if(state.homeTab === 'settings'){
-    var subLabel = {content:'Conteúdo',goals:'Metas',personalize:'Personalização',app:'Aplicativo',sync:'Sincronização',backup:'Backup',danger:'Zona de Risco'}[state.settingsSubTab] || 'Conteúdo';
+    var subLabel = {content:'Conteúdo',goals:'Metas',personalize:'Personalização',sync:'Sincronização',backup:'Backup',danger:'Zona de Risco'}[state.settingsSubTab] || 'Conteúdo';
     el.innerHTML = '<span>Configurações</span><span class="crumb-sep">›</span><span class="crumb-current">' + esc(subLabel) + '</span>';
   } else {
     el.innerHTML = '<span class="crumb-current">' + esc(mainLabel) + '</span>';
@@ -2853,7 +2757,6 @@ function renderTabSettings(){
   if(sub === 'content') return renderSettingsSubContent();
   if(sub === 'goals') return renderSettingsSubGoals();
   if(sub === 'personalize') return renderSettingsSubPersonalize();
-  if(sub === 'app') return renderSettingsSubApp();
   if(sub === 'sync') return renderSettingsSubSync();
   if(sub === 'backup') return renderSettingsSubBackup();
   if(sub === 'danger') return renderSettingsSubDanger();
@@ -3083,50 +2986,6 @@ function renderSettingsSubPersonalize(){
   html += '</select></div></div></div>';
 
   html += '<div class="appearance-footer"><button type="button" class="btn-secondary" data-haction="reset-appearance">Restaurar aparência padrão</button></div>';
-  html += '</section>';
-  return html;
-}
-
-function renderSettingsSubApp(){
-  var standalone = isPWAStandalone();
-  var canInstall = !!__pwaInstallPrompt && !standalone;
-  var swSupported = 'serviceWorker' in navigator;
-  var secureContext = location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-  var online = navigator.onLine;
-  var installLabel = standalone ? 'Instalado' : (canInstall ? 'Pronto para instalar' : 'Instalação pelo navegador');
-  var cacheLabel = __pwaServiceWorkerReady ? 'Offline preparado' : (swSupported && secureContext ? 'Preparando cache' : 'Requer HTTPS');
-  var html = '<section class="home-section" data-flat="1">';
-  html += '<div class="settings-page-head"><div class="settings-page-head-copy"><div class="settings-page-kicker">Configurações</div><div class="settings-page-title">Aplicativo</div><p class="settings-page-desc">Instale o Hunter como aplicativo e mantenha a interface principal disponível mesmo quando a conexão cair.</p></div></div>';
-  html += '<div class="pwa-status-grid">';
-  html += '<div class="pwa-status-card"><span class="pwa-status-dot '+(standalone?'ok':(canInstall?'ready':'neutral'))+'"></span><div><strong>'+esc(installLabel)+'</strong><span>'+(standalone?'O Hunter está rodando em modo aplicativo.':'A instalação mantém o Hunter separado do navegador.')+'</span></div></div>';
-  html += '<div class="pwa-status-card"><span class="pwa-status-dot '+(__pwaServiceWorkerReady?'ok':'neutral')+'"></span><div><strong>'+esc(cacheLabel)+'</strong><span>'+(secureContext?'O núcleo da plataforma é armazenado localmente para uso offline.':'Abra a plataforma por HTTPS ou localhost para ativar o cache offline.')+'</span></div></div>';
-  html += '<div class="pwa-status-card"><span class="pwa-status-dot '+(online?'ok':'warn')+'"></span><div><strong>'+(online?'Online':'Offline')+'</strong><span>'+(online?'Sincronização e importações externas podem funcionar normalmente.':'Questões e progresso local continuam acessíveis; sincronização aguarda conexão.')+'</span></div></div>';
-  html += '</div>';
-
-  html += '<div class="settings-panel"><div class="settings-panel-head"><div><div class="settings-panel-title">Instalar Hunter</div><div class="settings-panel-desc">Abra em tela própria, com ícone na tela inicial e menos elementos do navegador.</div></div><span class="settings-panel-badge">PWA</span></div>';
-  if(standalone){
-    html += '<div class="pwa-installed-box"><strong>Hunter já está instalado neste dispositivo.</strong><span>Você pode abrir o aplicativo pelo ícone adicionado ao sistema.</span></div>';
-  } else if(canInstall){
-    html += '<div class="pwa-install-row"><div><strong>Instalação disponível</strong><span>O navegador confirmou que o Hunter pode ser instalado.</span></div><button class="btn-primary" data-haction="pwa-install">Instalar Hunter</button></div>';
-  } else if(isIOSDevice()){
-    html += '<div class="pwa-guide"><strong>iPhone / iPad</strong><span>No Safari, toque em <b>Compartilhar</b> e escolha <b>Adicionar à Tela de Início</b>. Depois abra o Hunter pelo novo ícone.</span></div>';
-  } else {
-    html += '<div class="pwa-guide"><strong>Instalação pelo navegador</strong><span>Abra o menu do navegador e procure por <b>Instalar aplicativo</b> ou <b>Adicionar à tela inicial</b>. Quando o navegador disponibilizar o prompt, o botão de instalação também aparecerá aqui.</span></div>';
-  }
-  html += '</div>';
-
-  html += '<div class="settings-panel"><div class="settings-panel-head"><div><div class="settings-panel-title">Offline e atualizações</div><div class="settings-panel-desc">O Service Worker mantém o núcleo do Hunter em cache e troca de versão de forma controlada.</div></div><span class="settings-panel-badge">Cache</span></div>';
-  html += '<div class="pwa-feature-list">';
-  html += '<div class="pwa-feature"><strong>Interface offline</strong><span>HTML, manifesto e ícones ficam disponíveis sem internet após a primeira abertura online.</span></div>';
-  html += '<div class="pwa-feature"><strong>Dados locais preservados</strong><span>Seu banco e progresso continuam no armazenamento local do navegador. A sincronização externa não é necessária para responder questões.</span></div>';
-  html += '<div class="pwa-feature"><strong>Atualização segura</strong><span>Quando uma nova versão estiver pronta, o Hunter avisa antes de recarregar a aplicação.</span></div>';
-  html += '</div>';
-  html += '<div class="pwa-actions">';
-  if(__pwaUpdateAvailable) html += '<button class="btn-primary" data-haction="pwa-apply-update">Aplicar atualização</button>';
-  else html += '<button class="btn-secondary" data-haction="pwa-check-update"'+(!__pwaRegistration?' disabled':'')+'>Verificar atualização</button>';
-  html += '</div></div>';
-
-  html += '<div class="pwa-note"><strong>Importante:</strong> recursos de instalação e cache offline exigem que os arquivos do PWA sejam publicados juntos e servidos por HTTPS (como no GitHub Pages). Abrir apenas o HTML pelo explorador de arquivos não ativa o Service Worker.</div>';
   html += '</section>';
   return html;
 }
@@ -4463,19 +4322,6 @@ document.addEventListener('click', function(ev){
   if(action === 'toggle-theme-study'){ ev.preventDefault(); var cur = document.documentElement.getAttribute('data-theme') === 'dark'; setThemePref(!cur); return; }
   if(action === 'settings-sub'){ ev.preventDefault(); state.settingsSubTab = hEl.getAttribute('data-sub') || 'content'; state.homeTab = 'settings'; setSettingsMenuOpen(true); renderHome({resetScroll:true}); return; }
   if(action === 'open-sync-panel'){ ev.preventDefault(); state.homeTab = 'settings'; state.settingsSubTab = 'sync'; setSettingsMenuOpen(true); renderHome({resetScroll:true}); return; }
-  if(action === 'pwa-install'){ ev.preventDefault(); promptPWAInstall(); return; }
-  if(action === 'pwa-apply-update'){ ev.preventDefault(); applyPWAUpdate(); return; }
-  if(action === 'pwa-check-update'){
-    ev.preventDefault();
-    var pwaBtn = hEl; var oldPwaText = pwaBtn.textContent; pwaBtn.disabled = true; pwaBtn.textContent = 'Verificando…';
-    checkPWAUpdate().then(function(ok){
-      pwaBtn.disabled = false; pwaBtn.textContent = oldPwaText;
-      if(!__pwaUpdateAvailable && ok) alert('Hunter já está na versão disponível mais recente.');
-      else if(!ok) alert('Não foi possível verificar atualizações agora.');
-      refreshPWASettingsIfOpen();
-    });
-    return;
-  }
   if(action === 'toggle-sync-auto'){ ev.preventDefault(); setSyncAuto(!getSyncAuto()); if(getSyncAuto()) syncPull(false); updateSyncStatusUI(); renderHome(); return; }
   if(action === 'sync-save'){
     ev.preventDefault();
@@ -5415,28 +5261,6 @@ body.study-mode main.questions-container > .tema-section{
     --study-card-gap:16px;
   }
 }
-</style>
-
-
-<style id="pwa-ui-v1">
-.pwa-offline-badge{display:inline-flex;align-items:center;justify-content:center;height:28px;padding:0 9px;border:1px solid var(--warn);border-radius:999px;background:var(--warn-container);color:var(--warn);font-size:.65rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap}
-.pwa-offline-badge[hidden]{display:none!important}
-.pwa-status-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:0 0 14px}
-.pwa-status-card{display:flex;align-items:flex-start;gap:11px;padding:15px 16px;border:1px solid var(--rule);border-radius:var(--radius-lg);background:var(--paper-raised);min-width:0}
-.pwa-status-card>div{min-width:0}.pwa-status-card strong{display:block;font-family:var(--font-display);font-size:.98rem;font-weight:500;color:var(--on-surface);line-height:1.25}.pwa-status-card span:not(.pwa-status-dot){display:block;margin-top:4px;font-size:.73rem;line-height:1.45;color:var(--on-surface-variant)}
-.pwa-status-dot{width:9px;height:9px;border-radius:50%;margin-top:5px;flex:0 0 auto;background:var(--ink-subtle);box-shadow:0 0 0 3px color-mix(in srgb,var(--ink-subtle) 14%,transparent)}
-.pwa-status-dot.ok{background:var(--success);box-shadow:0 0 0 3px color-mix(in srgb,var(--success) 14%,transparent)}
-.pwa-status-dot.ready{background:var(--primary);box-shadow:0 0 0 3px color-mix(in srgb,var(--primary) 14%,transparent)}
-.pwa-status-dot.warn{background:var(--warn);box-shadow:0 0 0 3px color-mix(in srgb,var(--warn) 14%,transparent)}
-.pwa-install-row,.pwa-installed-box,.pwa-guide{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:16px;border:1px solid var(--rule);border-radius:var(--radius);background:var(--surface)}
-.pwa-install-row>div,.pwa-installed-box,.pwa-guide{min-width:0}.pwa-install-row strong,.pwa-installed-box strong,.pwa-guide strong{font-family:var(--font-display);font-size:1rem;font-weight:500;color:var(--on-surface)}
-.pwa-install-row span,.pwa-installed-box span,.pwa-guide span{display:block;margin-top:4px;font-size:.78rem;line-height:1.5;color:var(--on-surface-variant)}
-.pwa-installed-box,.pwa-guide{display:block}
-.pwa-feature-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.pwa-feature{padding:13px 14px;border:1px solid var(--rule);border-radius:var(--radius);background:var(--surface)}.pwa-feature strong{display:block;font-size:.78rem;color:var(--on-surface);margin-bottom:5px}.pwa-feature span{display:block;font-size:.72rem;line-height:1.48;color:var(--on-surface-variant)}
-.pwa-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}.pwa-note{margin-top:14px;padding:12px 14px;border-left:3px solid var(--primary);border-radius:var(--radius);background:var(--primary-container);font-size:.76rem;line-height:1.55;color:var(--on-primary-container)}
-.pwa-update-toast{position:fixed;top:calc(64px + env(safe-area-inset-top,0px));right:16px;z-index:100010;max-width:min(390px,calc(100vw - 32px));display:flex;align-items:center;gap:16px;padding:13px 14px 13px 16px;border:1px solid var(--rule-strong);border-radius:var(--radius-lg);background:var(--paper-raised);box-shadow:0 14px 38px rgba(0,0,0,.16)}
-.pwa-update-toast>div{min-width:0;flex:1}.pwa-update-toast strong{display:block;font-family:var(--font-display);font-size:.94rem;font-weight:500;color:var(--on-surface)}.pwa-update-toast span{display:block;margin-top:2px;font-size:.72rem;line-height:1.4;color:var(--on-surface-variant)}.pwa-update-toast .btn-primary{padding:8px 12px;font-size:.76rem;flex:0 0 auto}
-@media(max-width:700px){.pwa-status-grid,.pwa-feature-list{grid-template-columns:1fr}.pwa-install-row{align-items:stretch;flex-direction:column}.pwa-install-row .btn-primary{width:100%}.pwa-update-toast{left:12px;right:12px;top:calc(60px + env(safe-area-inset-top,0px));max-width:none}}
 </style>
 
 </body>
